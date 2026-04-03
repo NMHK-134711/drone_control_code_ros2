@@ -1,4 +1,4 @@
-##주의사항 : conda를 쓰고있다면 deactivate를 해야함##
+# 주의사항 : conda를 쓰고있다면 deactivate를 해야함 
 
 requirments
 
