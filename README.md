@@ -6,10 +6,10 @@ Micro XRCE-DDS Agent
 
 Gazebo(공식 도큐먼트 참고)
 
-PyQt5
-numpy
-pymavlink
-rclpy
-px4_msgs
-geometry_msgs
-sensor_msgs
+PyQt5\n
+numpy\n
+pymavlink\n
+rclpy\n
+px4_msgs\n
+geometry_msgs\n
+sensor_msgs\n
