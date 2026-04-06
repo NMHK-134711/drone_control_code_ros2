@@ -1,14 +1,16 @@
 # 주의사항 : conda를 쓰고있다면 deactivate를 해야함 
 
-requirments
+## 의존성
 
-px4_autopilot v1.16 이상
+# px4_autopilot v1.16 이상
 
-Micro XRCE-DDS Agent
+https://docs.px4.io/v1.16/ko/dev_setup/building_px4
 
-Gazebo(공식 도큐먼트 참고)
+# Micro XRCE-DDS Agent
 
-아래 내용든은 pip install로 설치
+# Gazebo(공식 도큐먼트 참고)
+
+아래 내용들은 pip install로 설치
 
 PyQt5
 numpy
