@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import math
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
@@ -39,9 +40,11 @@ class DroneControlNode(Node):
         self.is_armed = False
         self.nav_state = 0
         self.current_x, self.current_y, self.current_z = 0.0, 0.0, 0.0
+        self.current_yaw = 0.0 # 현재 바라보는 방향(라디안)
         
-        # 목표 좌표 변수 (초기값: 5m 상공)
+        # 목표 좌표 변수 (초기값: 5m 상공, 앞(0도)을 바라봄)
         self.target_x, self.target_y, self.target_z = 0.0, 0.0, -5.0
+        self.target_yaw = 0.0 
 
         # Offboard 유지를 위한 10Hz 타이머
         self.timer = self.create_timer(0.1, self.timer_callback)
@@ -52,10 +55,11 @@ class DroneControlNode(Node):
         self.nav_state = msg.nav_state
 
     def pos_callback(self, msg):
-        # NED 좌표계 기준 현재 위치
+        # NED 좌표계 기준 현재 위치 및 방향
         self.current_x = msg.x
         self.current_y = msg.y
         self.current_z = msg.z
+        self.current_yaw = msg.heading # heading 값이 현재 Yaw(라디안)입니다.
 
     def timer_callback(self):
         if self.px4_timestamp == 0:
@@ -77,7 +81,7 @@ class DroneControlNode(Node):
     def publish_trajectory_setpoint(self):
         msg = TrajectorySetpoint()
         msg.position = [self.target_x, self.target_y, self.target_z]
-        msg.yaw = 0.0
+        msg.yaw = self.target_yaw # 하드코딩되었던 0.0 대신 목표 Yaw 변수 대입!
         msg.velocity = [float('nan'), float('nan'), float('nan')]
         msg.acceleration = [float('nan'), float('nan'), float('nan')]
         msg.jerk = [float('nan'), float('nan'), float('nan')]
@@ -111,8 +115,8 @@ class DroneGUI(QWidget):
         self.ui_timer.start(50)
 
     def initUI(self):
-        self.setWindowTitle('드론 정밀 제어 GCS')
-        self.resize(400, 300)
+        self.setWindowTitle('드론 정밀 제어 GCS (방향 제어 포함)')
+        self.resize(500, 300) # Yaw 칸이 생겼으니 창을 조금 넓힙니다.
         main_layout = QVBoxLayout()
 
         # 1. 텔레메트리 (상태 표시) 패널
@@ -121,7 +125,7 @@ class DroneGUI(QWidget):
         
         self.lbl_armed = QLabel("시동 상태: 대기중")
         self.lbl_armed.setFont(QFont("Arial", 10, QFont.Bold))
-        self.lbl_pos = QLabel("현재 위치: X: 0.00 | Y: 0.00 | Z: 0.00")
+        self.lbl_pos = QLabel("현재 위치: X: 0.00 | Y: 0.00 | Z: 0.00 | Yaw: 0°")
         
         status_layout.addWidget(self.lbl_armed, 0, 0)
         status_layout.addWidget(self.lbl_pos, 1, 0)
@@ -149,22 +153,26 @@ class DroneGUI(QWidget):
         ctrl_group.setLayout(ctrl_layout)
         main_layout.addWidget(ctrl_group)
 
-        # 3. 좌표 이동 패널
-        pos_group = QGroupBox("정밀 좌표 이동 (NED: Z는 -가 위쪽)")
+        # 3. 좌표 및 방향 이동 패널
+        pos_group = QGroupBox("정밀 목표 설정 (NED 및 각도)")
         pos_layout = QHBoxLayout()
         
         self.input_x = QLineEdit("0.0")
         self.input_y = QLineEdit("0.0")
         self.input_z = QLineEdit("-5.0")
-        btn_move = QPushButton("목표 위치 전송")
+        self.input_yaw = QLineEdit("0.0") # Yaw 입력창 추가
+        
+        btn_move = QPushButton("전송")
         btn_move.clicked.connect(self.update_target_position)
 
-        pos_layout.addWidget(QLabel("X:"))
+        pos_layout.addWidget(QLabel("X(m):"))
         pos_layout.addWidget(self.input_x)
-        pos_layout.addWidget(QLabel("Y:"))
+        pos_layout.addWidget(QLabel("Y(m):"))
         pos_layout.addWidget(self.input_y)
-        pos_layout.addWidget(QLabel("Z:"))
+        pos_layout.addWidget(QLabel("Z(m):"))
         pos_layout.addWidget(self.input_z)
+        pos_layout.addWidget(QLabel("Yaw(도):"))
+        pos_layout.addWidget(self.input_yaw)
         pos_layout.addWidget(btn_move)
         
         pos_group.setLayout(pos_layout)
@@ -177,7 +185,12 @@ class DroneGUI(QWidget):
             self.node.target_x = float(self.input_x.text())
             self.node.target_y = float(self.input_y.text())
             self.node.target_z = float(self.input_z.text())
-            self.node.get_logger().info(f"좌표 업데이트: X={self.node.target_x}, Y={self.node.target_y}, Z={self.node.target_z}")
+            
+            # 사람이 입력한 각도(Degree)를 드론이 알아듣는 라디안(Radian)으로 변환
+            yaw_deg = float(self.input_yaw.text())
+            self.node.target_yaw = math.radians(yaw_deg)
+            
+            self.node.get_logger().info(f"좌표 업데이트: X={self.node.target_x}, Y={self.node.target_y}, Z={self.node.target_z}, Yaw={yaw_deg}°")
         except ValueError:
             self.node.get_logger().error("숫자만 입력해주세요!")
 
@@ -190,7 +203,9 @@ class DroneGUI(QWidget):
         color = "red" if self.node.is_armed else "blue"
         self.lbl_armed.setText(f"시동 상태: <span style='color:{color}'>{arm_text}</span>")
         
-        self.lbl_pos.setText(f"현재 위치: X: {self.node.current_x:.2f} | Y: {self.node.current_y:.2f} | Z: {self.node.current_z:.2f}")
+        # 드론이 보내주는 라디안 값을 다시 사람이 보기 편하게 각도로 변환하여 출력
+        current_yaw_deg = math.degrees(self.node.current_yaw)
+        self.lbl_pos.setText(f"현재 위치: X: {self.node.current_x:.2f} | Y: {self.node.current_y:.2f} | Z: {self.node.current_z:.2f} | Yaw: {current_yaw_deg:.0f}°")
 
 
 def main(args=None):
