@@ -14,8 +14,12 @@ https://docs.px4.io/v1.16/ko/dev_setup/building_px4
 
 PyQt5
 numpy
-pymavlink
 rclpy
 px4_msgs
 geometry_msgs
 sensor_msgs
+
+px4_msgs==2.0.1
+PyQt5==5.15.11
+PyQt5_sip==12.9.1
+rclpy==3.3.21
