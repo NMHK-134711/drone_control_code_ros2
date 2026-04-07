@@ -27,6 +27,7 @@ setup(
             'gui_node = px4_gui_ctrl.gui_node:main',
             'auto_painter_node = px4_gui_ctrl.auto_painter:main',
             'manual_controller_node = px4_gui_ctrl.manual_controller:main',
+            'drone_teleop_node = px4_gui_ctrl.drone_teleop:main',
         ],
     },
 )
